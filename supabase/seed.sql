@@ -157,6 +157,85 @@ values ('22222222-2222-2222-2222-222222222222', 'Hipertrofia ABC — Iniciante',
   '[{"day":"seg","name":"A — Peito/Ombro/Tríceps","goal":"Hipertrofia","duration":"55min","warmup":"5min esteira + 2 séries leves supino","exercises":[{"name":"Supino reto","sets":3,"reps":"8-12","rest":90,"load":"a registrar"},{"name":"Supino inclinado halteres","sets":3,"reps":"10-12","rest":90},{"name":"Desenvolvimento halteres","sets":3,"reps":"10-12","rest":90},{"name":"Elevação lateral","sets":3,"reps":"12-15","rest":60},{"name":"Tríceps corda","sets":3,"reps":"10-12","rest":60}]},{"day":"ter","name":"B — Costas/Bíceps","goal":"Hipertrofia","duration":"55min","warmup":"5min remo + barra leve","exercises":[{"name":"Puxada frontal","sets":3,"reps":"8-12","rest":90},{"name":"Remada curvada","sets":3,"reps":"8-12","rest":90},{"name":"Remada baixa","sets":3,"reps":"10-12","rest":90},{"name":"Rosca direta","sets":3,"reps":"10-12","rest":60},{"name":"Rosca martelo","sets":3,"reps":"10-12","rest":60}]},{"day":"qui","name":"C — Pernas/Core","goal":"Hipertrofia","duration":"60min","warmup":"5min bike + agachamento livre","exercises":[{"name":"Agachamento livre","sets":3,"reps":"8-12","rest":120},{"name":"Leg press","sets":3,"reps":"10-12","rest":90},{"name":"Terra romeno","sets":3,"reps":"8-10","rest":120},{"name":"Panturrilha em pé","sets":4,"reps":"12-15","rest":60},{"name":"Prancha","sets":3,"reps":"40s","rest":60}]},{"day":"sex","name":"A2 — Peito/Ombro leve + abdômen","goal":"Volume extra","duration":"45min","warmup":"5min esteira","exercises":[{"name":"Supino máquina","sets":3,"reps":"10-12","rest":90},{"name":"Crucifixo","sets":3,"reps":"12","rest":60},{"name":"Abdominal infra","sets":3,"reps":"12-15","rest":60},{"name":"Abdominal oblíquo","sets":3,"reps":"12","rest":60}]}]',
   'Técnica acima de carga no primeiro mês.');
 
+-- ════════════════ Body Scans (histórico para Carlos) ═════════════════════
+insert into public.body_scan_sessions (user_id, scan_date, height_reference, weight_at_scan, confidence_score, body_fat_estimate, margin_of_error, notes)
+values
+  ('11111111-1111-1111-1111-111111111111', current_date - 90, 175, 102.0, 0.72, 33.5, '±4%', 'Scan inicial — 90 dias atrás'),
+  ('11111111-1111-1111-1111-111111111111', current_date - 60, 175, 100.5, 0.74, 32.8, '±4%', 'Scan 60 dias atrás'),
+  ('11111111-1111-1111-1111-111111111111', current_date - 30, 175, 99.0, 0.76, 32.0, '±4%', 'Scan 30 dias atrás'),
+  ('11111111-1111-1111-1111-111111111111', current_date, 175, 98.0, 0.78, 31.2, '±3%', 'Scan atual — hoje');
+
+-- Photos para cada scan (4 ângulos: frente, costas, esquerda, direita)
+insert into public.body_scan_photos (user_id, scan_session_id, angle, quality_score)
+select '11111111-1111-1111-1111-111111111111'::uuid, id, a, 0.80
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111',
+     unnest(array['frente','costas','esquerda','direita']) a;
+
+-- Medidas estimadas para cada scan
+insert into public.body_scan_measurements (user_id, scan_session_id, waist_estimate, hip_estimate, chest_estimate, abdomen_estimate, arm_estimate, thigh_estimate, neck_estimate, shoulder_width_estimate, margin_of_error)
+select '11111111-1111-1111-1111-111111111111'::uuid, id,
+  110, 112, 112, 113, 36, 62, 43, 122, '±3cm'
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111' and scan_date = current_date - 90
+union all
+select '11111111-1111-1111-1111-111111111111'::uuid, id,
+  109, 111, 111, 111, 36, 61, 43, 122, '±3cm'
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111' and scan_date = current_date - 60
+union all
+select '11111111-1111-1111-1111-111111111111'::uuid, id,
+  108, 111, 111, 110, 36, 61, 43, 122, '±3cm'
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111' and scan_date = current_date - 30
+union all
+select '11111111-1111-1111-1111-111111111111'::uuid, id,
+  107, 110, 111, 109, 36, 60, 43, 122, '±3cm'
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111' and scan_date = current_date;
+
+-- Relatórios de análise corporal
+insert into public.body_scan_reports (user_id, scan_session_id, posture_analysis, body_composition_analysis, visual_progress_analysis, recommendations, raw_ai_json)
+select '11111111-1111-1111-1111-111111111111'::uuid, id,
+  '{"alineamento":"Ombros levemente projetados para frente, pelve anterior leve, postura melhorando"}',
+  '{"padrão_gordura":"Acúmulo predominante abdominal (androide)","massa_muscular":"Baixa, especialmente em pernas e tórax"}',
+  '{"comparacao":"Redução gradual de 4kg e de cintura em 3cm nos últimos 90 dias","tendencia":"Positiva — perda de gordura, manutenção de massa"}',
+  '["Manter déficit calórico moderado","Focar em treino de força para preservar/ganhar massa","Continuar caminhada para gasto diário"]',
+  '{}'
+from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111';
+
+-- ════════════════ Body Scans (histórico para Rafael) ═════════════════════
+insert into public.body_scan_sessions (user_id, scan_date, height_reference, weight_at_scan, confidence_score, body_fat_estimate, margin_of_error, notes)
+values
+  ('22222222-2222-2222-2222-222222222222', current_date - 60, 180, 69.5, 0.78, 18.2, '±3%', 'Scan 60 dias atrás'),
+  ('22222222-2222-2222-2222-222222222222', current_date - 30, 180, 69.8, 0.80, 17.9, '±3%', 'Scan 30 dias atrás'),
+  ('22222222-2222-2222-2222-222222222222', current_date, 180, 70.0, 0.82, 17.6, '±3%', 'Scan atual — hoje');
+
+-- Photos para cada scan de Rafael
+insert into public.body_scan_photos (user_id, scan_session_id, angle, quality_score)
+select '22222222-2222-2222-2222-222222222222'::uuid, id, a, 0.85
+from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222',
+     unnest(array['frente','costas','esquerda','direita']) a;
+
+-- Medidas estimadas para cada scan de Rafael
+insert into public.body_scan_measurements (user_id, scan_session_id, waist_estimate, hip_estimate, chest_estimate, abdomen_estimate, arm_estimate, thigh_estimate, neck_estimate, shoulder_width_estimate, margin_of_error)
+select '22222222-2222-2222-2222-222222222222'::uuid, id,
+  82, 94, 95, 84, 30, 52, 37, 110, '±2cm'
+from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222' and scan_date = current_date - 60
+union all
+select '22222222-2222-2222-2222-222222222222'::uuid, id,
+  81, 94, 96, 83, 30.2, 52.3, 37, 110.5, '±2cm'
+from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222' and scan_date = current_date - 30
+union all
+select '22222222-2222-2222-2222-222222222222'::uuid, id,
+  81, 94, 97, 83, 30.5, 52.5, 37, 111, '±2cm'
+from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222' and scan_date = current_date;
+
+-- Relatórios de análise corporal para Rafael
+insert into public.body_scan_reports (user_id, scan_session_id, posture_analysis, body_composition_analysis, visual_progress_analysis, recommendations, raw_ai_json)
+select '22222222-2222-2222-2222-222222222222'::uuid, id,
+  '{"alineamento":"Postura neutra, ombros alinhados, bom alinhamento espinal"}',
+  '{"padrão_gordura":"Leve acúmulo na região abdominal inferior (skinny fat leve)","massa_muscular":"Moderada, potencial de ganho rápido em ombros e costas"}',
+  '{"comparacao":"Ganho de 0,5kg, manutenção de cintura, aumento discreto de tórax (hipertrofia)","tendencia":"Positiva — recomposição corporal em andamento"}',
+  '["Manter superávit leve com proteína alta","Progressão linear de carga nos básicos","Fotos mensais para monitoramento visual"]',
+  '{}'
+from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222';
+
 -- Consentimentos dos dois pacientes (demo)
 insert into public.consents (user_id, consent_type, accepted, version)
 select u, c, true, '1.0'
