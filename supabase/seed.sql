@@ -9,14 +9,18 @@ create extension if not exists pgcrypto;
 -- ── Usuários auth (padrão de seed local do Supabase) ─────────────────────
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
-  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, reauthentication_token, phone_change, phone_change_token
 ) values
   ('00000000-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
    'authenticated', 'authenticated', 'carlos@medfit.demo', crypt('medfit123', gen_salt('bf')),
-   now(), '{"provider":"email","providers":["email"]}', '{"name":"Carlos Andrade"}', now(), now()),
+   now(), '{"provider":"email","providers":["email"]}', '{"name":"Carlos Andrade"}', now(), now(),
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222',
    'authenticated', 'authenticated', 'rafael@medfit.demo', crypt('medfit123', gen_salt('bf')),
-   now(), '{"provider":"email","providers":["email"]}', '{"name":"Rafael Lima"}', now(), now());
+   now(), '{"provider":"email","providers":["email"]}', '{"name":"Rafael Lima"}', now(), now(),
+   '', '', '', '', '', '', '', '');
 
 insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
 values
@@ -165,11 +169,12 @@ values
   ('11111111-1111-1111-1111-111111111111', current_date - 30, 175, 99.0, 0.76, 32.0, '±4%', 'Scan 30 dias atrás'),
   ('11111111-1111-1111-1111-111111111111', current_date, 175, 98.0, 0.78, 31.2, '±3%', 'Scan atual — hoje');
 
--- Photos para cada scan (4 ângulos: frente, costas, esquerda, direita)
-insert into public.body_scan_photos (user_id, scan_session_id, angle, quality_score)
-select '11111111-1111-1111-1111-111111111111'::uuid, id, a, 0.80
-from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111',
-     unnest(array['frente','costas','esquerda','direita']) a;
+-- Photos para cada scan (4 ângulos)
+insert into public.body_scan_photos (user_id, scan_session_id, angle, file_url, quality_score)
+select '11111111-1111-1111-1111-111111111111'::uuid, id, a, 'seed/placeholder_' || a || '.jpg', 0.80
+from public.body_scan_sessions,
+     unnest(array['frente','costas','lado_esquerdo','lado_direito']) a
+where user_id = '11111111-1111-1111-1111-111111111111';
 
 -- Medidas estimadas para cada scan
 insert into public.body_scan_measurements (user_id, scan_session_id, waist_estimate, hip_estimate, chest_estimate, abdomen_estimate, arm_estimate, thigh_estimate, neck_estimate, shoulder_width_estimate, margin_of_error)
@@ -195,7 +200,7 @@ select '11111111-1111-1111-1111-111111111111'::uuid, id,
   '{"alineamento":"Ombros levemente projetados para frente, pelve anterior leve, postura melhorando"}',
   '{"padrão_gordura":"Acúmulo predominante abdominal (androide)","massa_muscular":"Baixa, especialmente em pernas e tórax"}',
   '{"comparacao":"Redução gradual de 4kg e de cintura em 3cm nos últimos 90 dias","tendencia":"Positiva — perda de gordura, manutenção de massa"}',
-  '["Manter déficit calórico moderado","Focar em treino de força para preservar/ganhar massa","Continuar caminhada para gasto diário"]',
+  array['Manter déficit calórico moderado','Focar em treino de força para preservar/ganhar massa','Continuar caminhada para gasto diário'],
   '{}'
 from public.body_scan_sessions where user_id = '11111111-1111-1111-1111-111111111111';
 
@@ -207,10 +212,11 @@ values
   ('22222222-2222-2222-2222-222222222222', current_date, 180, 70.0, 0.82, 17.6, '±3%', 'Scan atual — hoje');
 
 -- Photos para cada scan de Rafael
-insert into public.body_scan_photos (user_id, scan_session_id, angle, quality_score)
-select '22222222-2222-2222-2222-222222222222'::uuid, id, a, 0.85
-from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222',
-     unnest(array['frente','costas','esquerda','direita']) a;
+insert into public.body_scan_photos (user_id, scan_session_id, angle, file_url, quality_score)
+select '22222222-2222-2222-2222-222222222222'::uuid, id, a, 'seed/placeholder_' || a || '.jpg', 0.85
+from public.body_scan_sessions,
+     unnest(array['frente','costas','lado_esquerdo','lado_direito']) a
+where user_id = '22222222-2222-2222-2222-222222222222';
 
 -- Medidas estimadas para cada scan de Rafael
 insert into public.body_scan_measurements (user_id, scan_session_id, waist_estimate, hip_estimate, chest_estimate, abdomen_estimate, arm_estimate, thigh_estimate, neck_estimate, shoulder_width_estimate, margin_of_error)
@@ -232,7 +238,7 @@ select '22222222-2222-2222-2222-222222222222'::uuid, id,
   '{"alineamento":"Postura neutra, ombros alinhados, bom alinhamento espinal"}',
   '{"padrão_gordura":"Leve acúmulo na região abdominal inferior (skinny fat leve)","massa_muscular":"Moderada, potencial de ganho rápido em ombros e costas"}',
   '{"comparacao":"Ganho de 0,5kg, manutenção de cintura, aumento discreto de tórax (hipertrofia)","tendencia":"Positiva — recomposição corporal em andamento"}',
-  '["Manter superávit leve com proteína alta","Progressão linear de carga nos básicos","Fotos mensais para monitoramento visual"]',
+  array['Manter superávit leve com proteína alta','Progressão linear de carga nos básicos','Fotos mensais para monitoramento visual'],
   '{}'
 from public.body_scan_sessions where user_id = '22222222-2222-2222-2222-222222222222';
 
