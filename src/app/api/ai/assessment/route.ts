@@ -34,6 +34,33 @@ export async function POST() {
       );
     }
 
+    // limite do plano gratuito: 1 análise multiagente (planos pagos: ilimitado)
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if ((sub?.plan ?? "gratuito") === "gratuito") {
+      const { count } = await supabase
+        .from("ai_assessments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_mock", false);
+      const { count: total } = await supabase
+        .from("ai_assessments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if ((count ?? 0) >= 1 || (total ?? 0) >= 3) {
+        return NextResponse.json(
+          {
+            error: "limite do plano gratuito atingido — assine para análises ilimitadas",
+            redirect: "/assinatura",
+          },
+          { status: 402 }
+        );
+      }
+    }
+
     const patient = await buildPatientContext(supabase, user.id);
     if (!patient.weightKg || !patient.heightCm) {
       return NextResponse.json(

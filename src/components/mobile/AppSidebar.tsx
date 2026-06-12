@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Apple, Calendar, Camera, ClipboardList, CreditCard, Dumbbell, FileText, HeartPulse,
+  Apple, Bell, Calendar, Camera, ClipboardList, CreditCard, Dumbbell, FileText, HeartPulse,
   History, Home, LayoutDashboard, LogOut, Pill, Settings, Sparkles, TrendingUp, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const groups: { title: string; items: { href: string; label: string; icon: React
       { href: "/dieta", label: "Dieta do dia", icon: Apple },
       { href: "/medicacoes", label: "Medicações", icon: Pill },
       { href: "/checkin", label: "Check-in rápido", icon: ClipboardList },
+      { href: "/notificacoes", label: "Notificações", icon: Bell },
     ],
   },
   {

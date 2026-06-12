@@ -9,6 +9,7 @@ import { Card, EducationalNotice, ProgressBar } from "@/components/ui";
 import { WaterTracker } from "@/components/diet/WaterTracker";
 import { DailyTaskCard } from "@/components/dashboard/DashboardCards";
 import { MedicationScheduleCard } from "@/components/meds/MedicationList";
+import { UnreadNotificationsCard } from "@/components/dashboard/NotificationsList";
 import { ClipboardCheck, Scale } from "lucide-react";
 
 export const metadata = { title: "Hoje" };
@@ -21,7 +22,7 @@ export default async function HojePage() {
   await ensureDailyTasks(supabase, user.id);
 
   const date = todayISO();
-  const [profileQ, goalQ, healthQ, mealsQ, workoutQ, waterQ, checkinQ, assessQ] = await Promise.all([
+  const [profileQ, goalQ, healthQ, mealsQ, workoutQ, waterQ, checkinQ, assessQ, notifQ] = await Promise.all([
     supabase.from("profiles").select("name").eq("user_id", user.id).single(),
     supabase.from("goals").select("goal_type").eq("user_id", user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("health_records").select("weight").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -30,6 +31,7 @@ export default async function HojePage() {
     supabase.from("water_logs").select("amount_ml").eq("user_id", user.id).eq("date", date),
     supabase.from("daily_checkins").select("id").eq("user_id", user.id).eq("date", date).maybeSingle(),
     supabase.from("ai_assessments").select("daily_mobile_plan, risk_alerts").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).neq("status", "lida"),
   ]);
 
   const meds = await getTodayMedications(supabase, user.id);
@@ -72,6 +74,8 @@ export default async function HojePage() {
           </div>
         </div>
       </Card>
+
+      <UnreadNotificationsCard count={notifQ.count ?? 0} />
 
       {alerts.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">

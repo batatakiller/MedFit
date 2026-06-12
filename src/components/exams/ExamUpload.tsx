@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { extractTextFromImage, isOcrSupported } from "@/lib/ocr/extract";
+import { extractTextFromImage, extractTextFromPdf, isOcrSupported, isPdf } from "@/lib/ocr/extract";
 
 export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
   const router = useRouter();
@@ -34,6 +34,9 @@ export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
       if (isOcrSupported(file)) {
         setStage("Lendo exame (OCR no seu dispositivo)...");
         extracted = await extractTextFromImage(file, (pct) => setStage(`Lendo exame (OCR)... ${pct}%`)).catch(() => "");
+      } else if (isPdf(file)) {
+        setStage("Extraindo texto do PDF...");
+        extracted = await extractTextFromPdf(file, (pct) => setStage(`Extraindo texto do PDF... ${pct}%`)).catch(() => "");
       }
 
       setStage("Enviando para área privada...");
@@ -90,7 +93,7 @@ export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
         <span className="text-sm font-semibold text-ink-soft">
           {file ? file.name : "Selecionar exame (PDF ou imagem)"}
         </span>
-        <span className="text-xs text-ink-mute">Imagens passam por OCR no seu dispositivo</span>
+        <span className="text-xs text-ink-mute">Imagens passam por OCR e PDFs têm o texto extraído no seu dispositivo</span>
       </label>
       <div>
         <label className="label">Observações (opcional)</label>

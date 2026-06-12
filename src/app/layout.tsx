@@ -22,6 +22,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* aplica o modo escuro antes da pintura (evita flash) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('medfit-dark')==='1')document.documentElement.classList.add('dark')}catch(e){}",
+          }}
+        />
+      </head>
       <body>
         {children}
         <RegisterSW />

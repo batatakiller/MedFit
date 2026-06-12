@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
-  estimateFromLandmarks, validatePhotoQuality,
+  compareScans, estimateFromLandmarks, validatePhotoQuality,
   type AnglePhotoResult, type ScanAngle,
 } from "@/lib/vision/pipeline";
 
@@ -93,7 +93,39 @@ export async function POST(req: Request) {
     sex: profile.sex,
   });
 
-  // 3) persistência
+  // 3) comparação com o scan anterior (evolução mensal)
+  const { data: prevSession } = await supabase
+    .from("body_scan_sessions")
+    .select("scan_date, weight_at_scan, body_fat_estimate, body_scan_measurements(waist_estimate, hip_estimate, chest_estimate, arm_estimate, thigh_estimate)")
+    .eq("user_id", user.id)
+    .eq("status", "concluido")
+    .order("scan_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const prevMeas = Array.isArray(prevSession?.body_scan_measurements)
+    ? prevSession?.body_scan_measurements[0]
+    : null;
+  const comparison = prevSession
+    ? compareScans(
+        {
+          weightKg: weightKg,
+          waistCm: est.waistCm, hipCm: est.hipCm, chestCm: est.chestCm,
+          armCm: est.armCm, thighCm: est.thighCm, bodyFatPct: est.bodyFatPct,
+        },
+        {
+          weightKg: prevSession.weight_at_scan ? Number(prevSession.weight_at_scan) : null,
+          waistCm: prevMeas?.waist_estimate ? Number(prevMeas.waist_estimate) : null,
+          hipCm: prevMeas?.hip_estimate ? Number(prevMeas.hip_estimate) : null,
+          chestCm: prevMeas?.chest_estimate ? Number(prevMeas.chest_estimate) : null,
+          armCm: prevMeas?.arm_estimate ? Number(prevMeas.arm_estimate) : null,
+          thighCm: prevMeas?.thigh_estimate ? Number(prevMeas.thigh_estimate) : null,
+          bodyFatPct: prevSession.body_fat_estimate ? Number(prevSession.body_fat_estimate) : null,
+        }
+      )
+    : [];
+
+  // 4) persistência
   const { data: session, error } = await supabase
     .from("body_scan_sessions")
     .insert({
@@ -149,7 +181,9 @@ export async function POST(req: Request) {
         margem_erro: est.marginOfError,
         metodo: "MediaPipe Pose + escala por altura + modelo elíptico (estimativa)",
       },
-      visual_progress_analysis: null,
+      visual_progress_analysis: comparison.length
+        ? { vs_scan_de: prevSession?.scan_date, deltas: comparison }
+        : null,
       recommendations: [
         "Valores são estimativas — para precisão use bioimpedância, adipometria ou DEXA",
         "Refaça fotos mensalmente nas mesmas condições (roupa, pose, distância, luz)",
@@ -162,5 +196,6 @@ export async function POST(req: Request) {
     scanId: session.id,
     status: allLowQuality ? "rejeitado" : "concluido",
     estimates: allLowQuality ? null : est,
+    comparison: allLowQuality ? null : { since: prevSession?.scan_date ?? null, deltas: comparison },
   });
 }

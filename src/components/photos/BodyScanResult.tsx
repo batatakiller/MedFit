@@ -13,6 +13,10 @@ interface ScanApiResult {
     chestCm: number | null; neckCm: number | null; armCm: number | null; thighCm: number | null;
     bodyFatPct: number | null; postureNotes: string[]; confidence: number; marginOfError: string;
   } | null;
+  comparison?: {
+    since: string | null;
+    deltas: { metric: string; delta: number; unit: string }[];
+  } | null;
 }
 
 const rows: [keyof NonNullable<ScanApiResult["estimates"]>, string][] = [
@@ -64,6 +68,25 @@ export function BodyScanResult({ result, onNew }: { result: ScanApiResult; onNew
           ) : null;
         })}
       </div>
+
+      {result.comparison?.deltas?.length ? (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">
+            Evolução vs. scan anterior{result.comparison.since ? ` (${result.comparison.since})` : ""}
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {result.comparison.deltas.map((d) => {
+              const better = d.delta < 0 || (d.metric === "Braço" || d.metric === "Coxa") && d.delta > 0;
+              return (
+                <span key={d.metric}
+                  className={`chip ${better ? "bg-brand-100 text-brand-800" : "bg-amber-100 text-amber-800"}`}>
+                  {d.metric}: {d.delta > 0 ? "+" : ""}{d.delta}{d.unit}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {e.postureNotes.length > 0 && (
         <div>

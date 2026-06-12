@@ -115,26 +115,11 @@ export function DeleteAccountButton() {
     );
     if (phrase !== "EXCLUIR") return;
     setBusy(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    // limpa storage (tabelas caem em cascata quando o auth.user é removido pelo backend)
-    for (const bucket of ["exams", "body-photos", "avatars"] as const) {
-      const { data: files } = await supabase.storage.from(bucket).list(user.id);
-      if (files?.length) {
-        await supabase.storage.from(bucket).remove(files.map((f) => `${user.id}/${f.name}`));
-      }
-    }
-    // registra a solicitação de exclusão; a remoção do auth.user é concluída
-    // pelo backend (service role) — aqui encerramos a sessão.
-    await supabase.from("notifications").insert({
-      user_id: user.id, type: "sistema",
-      title: "Solicitação de exclusão de conta",
-      message: "Usuário solicitou exclusão definitiva (LGPD).", status: "pendente",
-    });
-    await supabase.auth.signOut();
+    const res = await fetch("/api/account/delete", { method: "POST" }).catch(() => null);
+    const json = await res?.json().catch(() => null);
+    await createClient().auth.signOut();
     setBusy(false);
-    router.push("/?conta=exclusao-solicitada");
+    router.push(json?.mode === "excluida" ? "/?conta=excluida" : "/?conta=exclusao-solicitada");
   }
   return (
     <button onClick={run} disabled={busy} className="btn-secondary w-full justify-start text-rose-600">
