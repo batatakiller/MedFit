@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { TwoFactorChallengeForm } from "@/components/auth/TwoFactorChallengeForm";
 
 export function LoginForm() {
   const router = useRouter();
@@ -12,6 +13,12 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"credenciais" | "totp">("credenciais");
+
+  function goToApp() {
+    router.push(params.get("next") || "/dashboard");
+    router.refresh();
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,8 +26,8 @@ export function LoginForm() {
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(
         error.message.includes("Invalid login")
           ? "E-mail ou senha incorretos."
@@ -30,8 +37,26 @@ export function LoginForm() {
       );
       return;
     }
-    router.push(params.get("next") || "/dashboard");
-    router.refresh();
+
+    // Conta com 2FA ativo: senha autentica em AAL1; pedir TOTP para elevar a AAL2.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    setLoading(false);
+    if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+      setStep("totp");
+      return;
+    }
+    goToApp();
+  }
+
+  if (step === "totp") {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-lg bg-tech-50 p-3 text-sm text-tech-800 dark:bg-tech-950/40 dark:text-tech-200">
+          🔐 Esta conta tem verificação em duas etapas ativada.
+        </p>
+        <TwoFactorChallengeForm onSuccess={goToApp} />
+      </div>
+    );
   }
 
   return (

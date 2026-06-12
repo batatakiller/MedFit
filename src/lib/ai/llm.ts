@@ -24,7 +24,6 @@ export async function callAgent(opts: {
   const stream = client().messages.stream({
     model: MODEL,
     max_tokens: opts.maxTokens ?? 8192,
-    thinking: { type: "adaptive" },
     system: opts.system,
     messages: [{ role: "user", content: opts.user }],
   });

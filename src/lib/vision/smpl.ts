@@ -48,15 +48,30 @@ export function smpl3dAvailable() {
   return Boolean(SMPL_SERVICE_URL);
 }
 
-export async function requestSmpl3DReconstruction(req: Smpl3DRequest): Promise<Smpl3DResult> {
+// Chama o serviço externo de reconstrução com timeout. Falhas degradam para
+// as estimativas 2D do MVP — nunca bloqueiam o scan.
+export async function requestSmpl3DReconstruction(
+  req: Smpl3DRequest,
+  timeoutMs = 90_000
+): Promise<Smpl3DResult> {
   if (!SMPL_SERVICE_URL) {
     return { ok: false, error: "Reconstrução 3D ainda não habilitada (MEDFIT_SMPL_SERVICE_URL)" };
   }
-  const res = await fetch(SMPL_SERVICE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) return { ok: false, error: `serviço 3D retornou ${res.status}` };
-  return (await res.json()) as Smpl3DResult;
+  try {
+    const res = await fetch(SMPL_SERVICE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return { ok: false, error: `serviço 3D retornou ${res.status}` };
+    return (await res.json()) as Smpl3DResult;
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error && e.name === "TimeoutError"
+        ? "serviço 3D excedeu o tempo limite"
+        : "serviço 3D indisponível",
+    };
+  }
 }

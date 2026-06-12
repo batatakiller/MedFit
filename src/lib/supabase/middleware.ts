@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/termos",
   "/privacidade",
   "/auth/callback",
+  "/verificar-2fa",
 ];
 
 const AUTH_PAGES = ["/login", "/cadastro", "/recuperar-senha"];
@@ -65,11 +66,35 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && AUTH_PAGES.includes(pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
+  // 2FA: usuário com fator TOTP verificado precisa elevar a sessão para AAL2
+  // antes de acessar rotas privadas (evita pular o desafio navegando direto).
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const needsMfa = aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2";
+
+    if (needsMfa && !isPublic(pathname)) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "verificação 2FA necessária" }, { status: 401 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/verificar-2fa";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    if (!needsMfa && pathname === "/verificar-2fa") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    if (AUTH_PAGES.includes(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = needsMfa ? "/verificar-2fa" : "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

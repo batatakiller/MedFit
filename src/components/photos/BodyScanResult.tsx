@@ -1,13 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Ruler } from "lucide-react";
 import { ConfidenceScoreBadge } from "@/components/ui";
+
+const Body3DViewer = dynamic(
+  () => import("@/components/photos/Body3DViewer").then((m) => m.Body3DViewer),
+  { ssr: false, loading: () => <div className="h-[380px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" /> }
+);
 
 interface ScanApiResult {
   ok: boolean;
   scanId: string;
   status: string;
+  heightCm?: number;
   estimates: {
     shoulderWidthCm: number | null; waistCm: number | null; hipCm: number | null;
     chestCm: number | null; neckCm: number | null; armCm: number | null; thighCm: number | null;
@@ -16,6 +23,9 @@ interface ScanApiResult {
   comparison?: {
     since: string | null;
     deltas: { metric: string; delta: number; unit: string }[];
+  } | null;
+  reconstruction3d?: {
+    bodyVolumeL: number; meshUrl: string | null; confidence: number;
   } | null;
 }
 
@@ -68,6 +78,27 @@ export function BodyScanResult({ result, onNew }: { result: ScanApiResult; onNew
           ) : null;
         })}
       </div>
+
+      {result.heightCm ? (
+        <div>
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-mute">
+            Análise 3D {result.reconstruction3d ? "(malha SMPL)" : "(avatar pelas medidas)"}
+          </p>
+          <Body3DViewer
+            heightCm={result.heightCm}
+            current={{
+              waistCm: e.waistCm, hipCm: e.hipCm, chestCm: e.chestCm, neckCm: e.neckCm,
+              armCm: e.armCm, thighCm: e.thighCm, shoulderWidthCm: e.shoulderWidthCm,
+            }}
+            meshUrl={result.reconstruction3d?.meshUrl ?? null}
+          />
+          {result.reconstruction3d && (
+            <p className="mt-1 text-center text-xs text-ink-mute">
+              Volume corporal estimado: {result.reconstruction3d.bodyVolumeL.toFixed(1)}L
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {result.comparison?.deltas?.length ? (
         <div>

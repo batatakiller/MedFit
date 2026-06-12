@@ -5,8 +5,12 @@ import {
   compareScans, estimateFromLandmarks, validatePhotoQuality,
   type AnglePhotoResult, type ScanAngle,
 } from "@/lib/vision/pipeline";
+import {
+  requestSmpl3DReconstruction, smpl3dAvailable, type Smpl3DMeasurements,
+} from "@/lib/vision/smpl";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 150; // reconstrução 3D externa pode demorar
 
 const photoSchema = z.object({
   angle: z.enum(["frente", "lado_esquerdo", "lado_direito", "costas"]),
@@ -92,6 +96,42 @@ export async function POST(req: Request) {
     age: profile.age,
     sex: profile.sex,
   });
+
+  // 2b) reconstrução 3D (SMPL) quando o serviço está configurado — refina as
+  // circunferências do modelo elíptico com medições sobre a malha 3D.
+  let smpl: Smpl3DMeasurements | null = null;
+  let meshUrl: string | null = null;
+  if (smpl3dAvailable() && !allLowQuality) {
+    const signedPhotos = await Promise.all(
+      results.map(async (r) => {
+        const { data } = await supabase.storage
+          .from("body-photos")
+          .createSignedUrl(r.filePath, 600);
+        return data?.signedUrl ? { angle: r.angle, signedUrl: data.signedUrl } : null;
+      })
+    );
+    const photos3d = signedPhotos.filter((p): p is NonNullable<typeof p> => p !== null);
+    if (photos3d.length) {
+      const r3d = await requestSmpl3DReconstruction({
+        scanSessionId: "pre-insert", // id definitivo só existe após o insert
+        heightCm: Number(profile.height),
+        photos: photos3d,
+      });
+      if (r3d.ok && r3d.measurements) {
+        smpl = r3d.measurements;
+        meshUrl = r3d.meshUrl ?? null;
+        // medições por malha 3D substituem as do modelo elíptico
+        est.waistCm = smpl.waistCm;
+        est.hipCm = smpl.hipCm;
+        est.chestCm = smpl.chestCm;
+        est.armCm = smpl.armCm;
+        est.thighCm = smpl.thighCm;
+        est.neckCm = smpl.neckCm;
+        est.confidence = Math.max(est.confidence, smpl.confidence);
+        est.marginOfError = smpl.marginOfError;
+      }
+    }
+  }
 
   // 3) comparação com o scan anterior (evolução mensal)
   const { data: prevSession } = await supabase
@@ -179,7 +219,17 @@ export async function POST(req: Request) {
         gordura_corporal_pct: est.bodyFatPct,
         confianca: est.confidence,
         margem_erro: est.marginOfError,
-        metodo: "MediaPipe Pose + escala por altura + modelo elíptico (estimativa)",
+        metodo: smpl
+          ? "Reconstrução 3D SMPL (malha paramétrica) + MediaPipe Pose"
+          : "MediaPipe Pose + escala por altura + modelo elíptico (estimativa)",
+        reconstrucao_3d: smpl
+          ? {
+              volume_corporal_l: smpl.bodyVolumeL,
+              betas: smpl.betas,
+              mesh_url: meshUrl,
+              confianca: smpl.confidence,
+            }
+          : null,
       },
       visual_progress_analysis: comparison.length
         ? { vs_scan_de: prevSession?.scan_date, deltas: comparison }
@@ -195,7 +245,11 @@ export async function POST(req: Request) {
     ok: !allLowQuality,
     scanId: session.id,
     status: allLowQuality ? "rejeitado" : "concluido",
+    heightCm: Number(profile.height),
     estimates: allLowQuality ? null : est,
     comparison: allLowQuality ? null : { since: prevSession?.scan_date ?? null, deltas: comparison },
+    reconstruction3d: smpl
+      ? { bodyVolumeL: smpl.bodyVolumeL, meshUrl, confidence: smpl.confidence }
+      : null,
   });
 }

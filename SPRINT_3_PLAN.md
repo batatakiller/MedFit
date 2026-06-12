@@ -170,7 +170,7 @@ Baseado no prompt original, precisa-se verificar/implementar:
 - [ ] Verificar performance no 3G/4G
 
 ### 2. **Análise Corporal Avançada**
-- [ ] Estrutura para SMPL 3D existe, mas não está integrada ao fluxo
+- [x] SMPL 3D integrado ao fluxo (/api/body-scan) + visualizador 3D (three.js)
 - [ ] Verificar se estimativas de medidas (cintura, quadril, etc.) estão acuradas
 - [ ] Testar pipeline de fotos em qualidades variadas (fraca iluminação, ângulo errado)
 - [ ] Implementar rejeiçã de fotos com qualidade muito baixa antes do processamento
@@ -387,8 +387,8 @@ npm start
 - [x] URLs assinadas
 - [x] Service role key server-only
 - [x] Validação Zod
-- [ ] Rate limiting (future)
-- [ ] 2FA (future)
+- [x] Rate limiting (middleware, janela fixa por IP + rota)
+- [x] 2FA TOTP (Supabase MFA, gate AAL2 no middleware)
 
 ### IA
 - [x] LangGraph montado

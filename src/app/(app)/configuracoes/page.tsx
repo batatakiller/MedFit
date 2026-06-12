@@ -6,6 +6,7 @@ import {
   DarkModeToggle, DeleteAccountButton, DeletePhotosExamsButton,
   ExportDataButton, LogoutButton, NotificationToggle,
 } from "@/components/dashboard/SettingsActions";
+import { TwoFactorSettings } from "@/components/settings/TwoFactorSettings";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Configurações" };
@@ -40,6 +41,11 @@ export default async function ConfiguracoesPage() {
           <NotificationToggle />
           <DarkModeToggle />
         </div>
+      </Card>
+
+      <Card>
+        <SectionTitle title="Segurança" subtitle="Verificação em duas etapas (2FA)." />
+        <TwoFactorSettings />
       </Card>
 
       <Card>
