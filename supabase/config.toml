@@ -1,0 +1,31 @@
+# Supabase CLI — configuração mínima do projeto local
+project_id = "medfit"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[storage]
+enabled = true
+file_size_limit = "20MiB"
+
+[edge_runtime]
+enabled = true
