@@ -96,6 +96,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
       const out = await callAgentJSON<BodyVisionSection>({
         system: BODY_VISION_AGENT_PROMPT,
         user: patientToPrompt(p, { memoria_relevante: state.memory }),
+        task: "bodyVision",
       });
       return { bodyVision: out, patient: p };
     }
@@ -111,6 +112,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           memoria_relevante: state.memory,
           relatorio_body_vision: state.bodyVision,
         }),
+        task: "medical",
       });
       return { doctor: out };
     }
@@ -128,6 +130,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           relatorio_body_vision: state.bodyVision,
           memoria_relevante: state.memory,
         }),
+        task: "nutrition",
       });
       return { nutrition: out };
     }
@@ -145,6 +148,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           relatorio_body_vision: state.bodyVision,
           estrategia_nutricional: state.nutrition?.strategy,
         }),
+        task: "training",
       });
       return { trainer: out };
     }
@@ -162,6 +166,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           medico: state.doctor, nutricionista: state.nutrition,
           treinador: state.trainer, body_vision: state.bodyVision,
         }),
+        task: "discussion",
       });
       return { discussion: out.agent_discussion };
     }
@@ -171,19 +176,33 @@ export function buildAssessmentGraph(deps: GraphDeps) {
   // 9) Validação de segurança ANTES do plano final
   const safetyValidation = async (state: S): Promise<Partial<S>> => {
     if (useReal) {
-      const out = await callAgentJSON<SafetyValidation>({
+      const payload = {
+        paciente: {
+          condicoes: state.patient.medicalConditions,
+          medicamentos: state.patient.medications,
+          imc: state.patient.imc,
+          nivel: state.patient.experienceLevel,
+        },
+        medico: state.doctor, nutricionista: state.nutrition, treinador: state.trainer,
+      };
+      const primary = await callAgentJSON<SafetyValidation>({
         system: SAFETY_VALIDATION_PROMPT,
-        user: JSON.stringify({
-          paciente: {
-            condicoes: state.patient.medicalConditions,
-            medicamentos: state.patient.medications,
-            imc: state.patient.imc,
-            nivel: state.patient.experienceLevel,
-          },
-          medico: state.doctor, nutricionista: state.nutrition, treinador: state.trainer,
-        }),
+        user: JSON.stringify(payload),
+        task: "safety",
       });
-      return { safety: out, revisionCount: state.revisionCount + 1 };
+      const review = process.env.OPENROUTER_API_KEY
+        ? await callAgentJSON<SafetyValidation>({
+            system: SAFETY_VALIDATION_PROMPT,
+            user: JSON.stringify({
+              ...payload,
+              validacao_primaria: primary,
+              instrucao:
+                "Faça uma revisão independente e conservadora. Se houver conflito, sinalize inseguro.",
+            }),
+            task: "safetyReview",
+          })
+        : null;
+      return { safety: mergeSafetyValidations(primary, review), revisionCount: state.revisionCount + 1 };
     }
     const risk = hasClinicalRisk(state.patient);
     return { safety: mockSafety(state.patient, risk), revisionCount: state.revisionCount + 1 };
@@ -201,6 +220,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           body_vision: state.bodyVision, validacao_seguranca: state.safety,
           discussao: state.discussion,
         }),
+        task: "integrated",
       });
       return { integrated: out };
     }
@@ -217,6 +237,7 @@ export function buildAssessmentGraph(deps: GraphDeps) {
           dieta: state.nutrition?.meal_plan, meta_agua_ml: state.patient.waterGoalMl,
           medicamentos_cadastrados: state.patient.medications,
         }),
+        task: "daily",
       });
       return { dailyPlan: out };
     }
@@ -345,6 +366,29 @@ export function buildAssessmentGraph(deps: GraphDeps) {
     .addEdge("SaveAssessmentNode", END);
 
   return graph.compile();
+}
+
+function mergeSafetyValidations(
+  primary: SafetyValidation,
+  review: SafetyValidation | null
+): SafetyValidation {
+  if (!review) return primary;
+
+  const warnings = Array.from(new Set([
+    ...(primary.warnings ?? []),
+    ...(review.warnings ?? []),
+  ]));
+
+  return {
+    is_safe: primary.is_safe && review.is_safe,
+    warnings,
+    requires_professional_followup:
+      primary.requires_professional_followup || review.requires_professional_followup,
+    reason: [
+      `Validação primária: ${primary.reason}`,
+      `Revisão secundária: ${review.reason}`,
+    ].join(" "),
+  };
 }
 
 function stateToResult(state: S, isMock: boolean): AssessmentResult {
