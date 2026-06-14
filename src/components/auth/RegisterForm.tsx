@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { registerSchema } from "@/lib/validators";
 
 export function RegisterForm() {
   const [name, setName] = useState("");
@@ -16,21 +17,18 @@ export function RegisterForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError("A senha precisa ter pelo menos 8 caracteres.");
-      return;
-    }
-    if (!accepted) {
-      setError("É necessário aceitar os Termos de uso e a Política de privacidade.");
+    const parsed = registerSchema.safeParse({ name, email, password, accepted });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Verifique os dados.");
       return;
     }
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: parsed.data.email,
+      password: parsed.data.password,
       options: {
-        data: { name },
+        data: { name: parsed.data.name },
         emailRedirectTo: `${window.location.origin}/auth/callback?next=/consentimento`,
       },
     });

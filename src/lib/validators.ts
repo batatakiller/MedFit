@@ -9,6 +9,20 @@ const safeText = (max = 2000) =>
     .max(max)
     .transform((s) => s.replace(/<[^>]*>/g, "")); // remove tags HTML
 
+export const loginSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido.").max(200),
+  password: z.string().min(1, "Informe sua senha.").max(200),
+});
+
+export const registerSchema = z.object({
+  name: safeText(120).pipe(z.string().min(2, "Informe seu nome.")),
+  email: z.string().trim().email("Informe um e-mail válido.").max(200),
+  password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres.").max(200),
+  accepted: z.literal(true, {
+    errorMap: () => ({ message: "É necessário aceitar os Termos de uso e a Política de privacidade." }),
+  }),
+});
+
 export const personalDataSchema = z.object({
   name: safeText(120).pipe(z.string().min(2, "Informe seu nome")),
   birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),

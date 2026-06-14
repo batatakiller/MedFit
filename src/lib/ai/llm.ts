@@ -13,7 +13,8 @@ export type AgentModelTask =
   | "safety"
   | "safetyReview"
   | "integrated"
-  | "daily";
+  | "daily"
+  | "chat";
 
 export function aiAvailable() {
   return Boolean(process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY);
@@ -34,6 +35,7 @@ const OPENROUTER_MODELS: Record<AgentModelTask, string> = {
   safetyReview: process.env.MEDFIT_OPENROUTER_MODEL_SAFETY_REVIEW || "anthropic/claude-opus-4.8",
   integrated: process.env.MEDFIT_OPENROUTER_MODEL_INTEGRATED || "openai/gpt-5.5",
   daily: process.env.MEDFIT_OPENROUTER_MODEL_DAILY || "openai/gpt-5.4-mini",
+  chat: process.env.MEDFIT_OPENROUTER_MODEL_CHAT || "openai/gpt-5.4",
 };
 
 let _client: Anthropic | null = null;

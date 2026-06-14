@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { quickCheckinSchema } from "@/lib/validators";
 import { todayISO } from "@/lib/utils";
 
 const YesNo = ({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean) => void }) => (
@@ -50,6 +51,21 @@ export function QuickCheckinForm({ hasMedications }: { hasMedications: boolean }
       setError("Responda dieta, treino e sono.");
       return;
     }
+    const parsed = quickCheckinSchema.safeParse({
+      energy_level: energy,
+      diet_completed: diet,
+      workout_completed: workout,
+      slept_well: sleep,
+      medication_completed: hasMedications ? meds : null,
+      symptoms,
+      pain,
+      notes,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Verifique os campos.");
+      return;
+    }
+    const d = parsed.data;
     setSaving(true);
     setError(null);
     const supabase = createClient();
@@ -59,15 +75,15 @@ export function QuickCheckinForm({ hasMedications }: { hasMedications: boolean }
       {
         user_id: user.id,
         date: todayISO(),
-        energy_level: energy,
-        diet_completed: diet,
-        workout_completed: workout,
-        slept_well: sleep,
-        sleep_quality: sleep ? 4 : 2,
-        medication_completed: hasMedications ? meds : null,
-        symptoms: symptoms || null,
-        pain: pain || null,
-        notes: notes || null,
+        energy_level: d.energy_level,
+        diet_completed: d.diet_completed,
+        workout_completed: d.workout_completed,
+        slept_well: d.slept_well,
+        sleep_quality: d.slept_well ? 4 : 2,
+        medication_completed: hasMedications ? d.medication_completed : null,
+        symptoms: d.symptoms || null,
+        pain: d.pain || null,
+        notes: d.notes || null,
       },
       { onConflict: "user_id,date" }
     );
