@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Apple, Bell, Calendar, Camera, ClipboardList, CreditCard, Dumbbell, FileText, HeartPulse,
-  History, Home, LayoutDashboard, LogOut, Pill, Settings, Sparkles, TrendingUp, User,
+  History, Home, LayoutDashboard, LogOut, MessageCircle, Pill, Settings, Sparkles, TrendingUp, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +16,7 @@ const groups: { title: string; items: { href: string; label: string; icon: React
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/hoje", label: "Hoje", icon: Home },
       { href: "/plano", label: "Plano integrado", icon: Sparkles },
+      { href: "/chat", label: "Chat", icon: MessageCircle },
     ],
   },
   {

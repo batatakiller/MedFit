@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Apple, Dumbbell, Home, Pill, TrendingUp, User } from "lucide-react";
+import { Apple, Dumbbell, Home, MessageCircle, Pill, TrendingUp, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/hoje", label: "Hoje", icon: Home },
+  { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/treino", label: "Treino", icon: Dumbbell },
   { href: "/dieta", label: "Dieta", icon: Apple },
   { href: "/medicacoes", label: "Medicações", icon: Pill },
@@ -18,7 +19,7 @@ export function BottomMobileNavigation() {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur pb-safe lg:hidden dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="mx-auto grid max-w-lg grid-cols-6">
+      <div className="mx-auto grid max-w-lg grid-cols-7">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (

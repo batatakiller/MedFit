@@ -15,6 +15,7 @@ interface Rule {
 // Ordem importa: o primeiro prefixo que casar é aplicado.
 const RULES: { prefix: string; rule: Rule }[] = [
   { prefix: "/api/ai/assessment", rule: { limit: 5, windowMs: 10 * 60_000 } }, // IA é cara
+  { prefix: "/api/ai/chat", rule: { limit: 20, windowMs: 10 * 60_000 } },
   { prefix: "/api/body-scan", rule: { limit: 10, windowMs: 10 * 60_000 } },
   { prefix: "/api/account/delete", rule: { limit: 3, windowMs: 60 * 60_000 } },
   { prefix: "/api/storage/sign", rule: { limit: 60, windowMs: 60_000 } },
