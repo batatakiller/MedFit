@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CHAT_AGENT_PROMPT } from "@/lib/ai/prompts";
 import { aiAvailable, callAgentJSON } from "@/lib/ai/llm";
 import { retrievePatientMemory } from "@/lib/rag/embeddings";
+import { buildExamMarkdownContext } from "@/lib/exams/context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -151,7 +152,7 @@ async function buildAuthorizedChatContext(
       .select("file_name, extracted_text, uploaded_at")
       .eq("user_id", userId)
       .order("uploaded_at", { ascending: false })
-      .limit(3),
+      .limit(20),
     sb
       .from("body_scan_sessions")
       .select("scan_date, body_fat_estimate, weight_at_scan, confidence_score, margin_of_error, body_scan_reports(body_composition_analysis, posture_analysis)")
@@ -169,11 +170,11 @@ async function buildAuthorizedChatContext(
     retrievePatientMemory(sb, userId, question, 6),
   ]);
 
-  const exams = (examsQ.data ?? []).map((exam) => ({
-    file_name: exam.file_name,
-    uploaded_at: exam.uploaded_at,
-    extracted_text: String(exam.extracted_text ?? "").slice(0, 1200),
-  }));
+  const examsMarkdown = buildExamMarkdownContext(examsQ.data ?? [], question, {
+    maxExams: 20,
+    maxCharsTotal: 22_000,
+    maxCharsPerExam: 6_000,
+  });
 
   return {
     hasProfile: Boolean(profileQ.data),
@@ -185,7 +186,7 @@ async function buildAuthorizedChatContext(
       ultima_avaliacao_ia: latestAssessmentQ.data ?? null,
       plano_alimentar_ativo: mealPlanQ.data ?? null,
       plano_treino_ativo: workoutPlanQ.data ?? null,
-      exames_recentes_ocr: exams,
+      exames_recentes_markdown: examsMarkdown,
       body_scan_recente: scanQ.data ?? null,
       checkins_recentes: checkinsQ.data ?? [],
       memoria_relevante: memory,

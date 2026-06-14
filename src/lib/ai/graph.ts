@@ -16,6 +16,7 @@ import {
   mockIntegrated, mockNutritionist, mockSafety, mockTrainer,
 } from "./mock";
 import { retrievePatientMemory, vectorizeAssessment } from "@/lib/rag/embeddings";
+import { buildExamMarkdownContext } from "@/lib/exams/context";
 
 // ════════════════════════════════════════════════════════════════════════
 // Grafo LangGraph — orquestração multiagente do Med Fit
@@ -82,11 +83,13 @@ export function buildAssessmentGraph(deps: GraphDeps) {
       .select("file_name, extracted_text, uploaded_at")
       .eq("user_id", deps.userId)
       .order("uploaded_at", { ascending: false })
-      .limit(5);
-    const texts = (data ?? [])
-      .filter((e) => e.extracted_text)
-      .map((e) => `[${e.file_name}] ${String(e.extracted_text).slice(0, 1500)}`);
-    return { examFindings: texts.length ? texts.join("\n---\n") : null };
+      .limit(12);
+    const context = buildExamMarkdownContext(
+      data ?? [],
+      "exames laboratoriais marcadores hormonais testosterona glicose colesterol vitaminas tireoide hemograma alterações referência",
+      { maxExams: 12, maxCharsTotal: 18_000, maxCharsPerExam: 4_500 }
+    );
+    return { examFindings: context || null };
   };
 
   // 4) Body Vision — interpreta o resultado técnico do pipeline de imagem

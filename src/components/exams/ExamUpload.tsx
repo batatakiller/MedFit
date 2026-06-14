@@ -11,16 +11,20 @@ import { extractTextFromImage, extractTextFromPdf, isOcrSupported, isPdf } from 
 
 export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (!file) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setError("Arquivo acima de 20MB.");
+    if (!files.length) return;
+    if (files.length > 10) {
+      setError("Envie no máximo 10 arquivos por vez.");
+      return;
+    }
+    if (files.some((file) => file.size > 20 * 1024 * 1024)) {
+      setError("Cada arquivo deve ter no máximo 20MB.");
       return;
     }
     setBusy(true);
@@ -30,33 +34,36 @@ export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("sem sessão");
 
-      let extracted = "";
-      if (isOcrSupported(file)) {
-        setStage("Lendo exame (OCR no seu dispositivo)...");
-        extracted = await extractTextFromImage(file, (pct) => setStage(`Lendo exame (OCR)... ${pct}%`)).catch(() => "");
-      } else if (isPdf(file)) {
-        setStage("Extraindo texto do PDF...");
-        extracted = await extractTextFromPdf(file, (pct) => setStage(`Extraindo texto do PDF... ${pct}%`)).catch(() => "");
+      for (const [index, file] of files.entries()) {
+        const prefix = `Arquivo ${index + 1}/${files.length}`;
+        let extracted = "";
+        if (isOcrSupported(file)) {
+          setStage(`${prefix}: lendo imagem (OCR)...`);
+          extracted = await extractTextFromImage(file, (pct) => setStage(`${prefix}: lendo imagem... ${pct}%`)).catch(() => "");
+        } else if (isPdf(file)) {
+          setStage(`${prefix}: extraindo texto do PDF...`);
+          extracted = await extractTextFromPdf(file, (pct) => setStage(`${prefix}: extraindo PDF... ${pct}%`)).catch(() => "");
+        }
+
+        setStage(`${prefix}: enviando para área privada...`);
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+        const path = `${user.id}/exam-${Date.now()}-${index}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("exams").upload(path, file, {
+          contentType: file.type,
+        });
+        if (upErr) throw upErr;
+
+        await supabase.from("exams").insert({
+          user_id: user.id,
+          file_url: path,
+          file_name: file.name,
+          file_type: file.type,
+          extracted_text: extracted || null,
+          notes: notes || null,
+        });
       }
 
-      setStage("Enviando para área privada...");
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
-      const path = `${user.id}/exam-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("exams").upload(path, file, {
-        contentType: file.type,
-      });
-      if (upErr) throw upErr;
-
-      await supabase.from("exams").insert({
-        user_id: user.id,
-        file_url: path,
-        file_name: file.name,
-        file_type: file.type,
-        extracted_text: extracted || null,
-        notes: notes || null,
-      });
-
-      setFile(null);
+      setFiles([]);
       setNotes("");
       router.refresh();
     } catch {
@@ -86,22 +93,32 @@ export function ExamUpload({ hasConsent }: { hasConsent: boolean }) {
         <input
           type="file"
           accept="application/pdf,image/jpeg,image/png,image/webp"
+          multiple
           className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
         />
         <FileText className="h-7 w-7 text-slate-400" />
         <span className="text-sm font-semibold text-ink-soft">
-          {file ? file.name : "Selecionar exame (PDF ou imagem)"}
+          {files.length
+            ? `${files.length} arquivo${files.length > 1 ? "s" : ""} selecionado${files.length > 1 ? "s" : ""}`
+            : "Selecionar exames (PDF ou imagem)"}
         </span>
-        <span className="text-xs text-ink-mute">Imagens passam por OCR e PDFs têm o texto extraído no seu dispositivo</span>
+        <span className="text-xs text-ink-mute">Até 10 arquivos por envio. Imagens passam por OCR e PDFs têm o texto extraído no seu dispositivo</span>
       </label>
+      {files.length > 0 && (
+        <div className="rounded-xl bg-slate-50 p-3 text-xs text-ink-soft dark:bg-slate-800/60">
+          {files.map((f) => (
+            <p key={`${f.name}-${f.size}`} className="truncate">{f.name}</p>
+          ))}
+        </div>
+      )}
       <div>
         <label className="label">Observações (opcional)</label>
         <input className="input" placeholder="Ex.: hemograma de junho" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-      <button onClick={submit} disabled={!file || busy} className="btn-primary w-full">
-        {busy ? (<><Loader2 className="h-4 w-4 animate-spin" /> {stage || "Enviando..."}</>) : (<><Upload className="h-4 w-4" /> Enviar exame</>)}
+      <button onClick={submit} disabled={!files.length || busy} className="btn-primary w-full">
+        {busy ? (<><Loader2 className="h-4 w-4 animate-spin" /> {stage || "Enviando..."}</>) : (<><Upload className="h-4 w-4" /> Enviar exames</>)}
       </button>
     </div>
   );

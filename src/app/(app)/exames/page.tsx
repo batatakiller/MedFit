@@ -20,7 +20,7 @@ export default async function ExamesPage() {
     <div className="mx-auto max-w-lg space-y-5 lg:max-w-3xl">
       <PageHeader
         title="Exames 🧪"
-        subtitle="Envie exames em PDF ou imagem. O texto extraído (OCR) ajuda o médico do esporte virtual a calibrar sua análise."
+        subtitle="Envie um ou mais exames em PDF ou imagem. O texto extraído ajuda a IA a cruzar marcadores como hormônios, vitaminas e exames laboratoriais."
       />
       <ExamUpload hasConsent={Boolean(consent)} />
       <section>
